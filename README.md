@@ -1,2 +1,10 @@
 # Labs-CV
- Laboratorios de Vision por Computadora
+### Repositorio para los laboratorios y proyectos del grupo.
+
+### Integrantes: 
+ - Adrian Fulladolsa
+ - Renatto Guzmán
+
+### Laboratorios: 
+
+- [Laboratorio 1](https://github.com/adrianfulla/Labs-CV/tree/Lab-1)
