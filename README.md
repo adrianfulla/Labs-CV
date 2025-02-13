@@ -8,3 +8,5 @@
 ### Laboratorios: 
 
 - [Laboratorio 1](https://github.com/adrianfulla/Labs-CV/tree/Lab-1)
+
+- [Laboratorio 2](https://github.com/adrianfulla/Labs-CV/tree/Lab-2)
