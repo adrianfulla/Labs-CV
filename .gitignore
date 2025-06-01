@@ -7,6 +7,8 @@ __pycache__/
 *
 !Anisotropic.py
 !lab4*.py
+!test_image.png 
+!filtered_result.jpg
 
 
 

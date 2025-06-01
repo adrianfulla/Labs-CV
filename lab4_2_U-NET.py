@@ -13,7 +13,6 @@ from sklearn.metrics import mean_squared_error
 from skimage.metrics import peak_signal_noise_ratio
 import time
 
-
 def setup_gpu():
     """Configure GPU settings for optimal performance"""
     print("=== GPU Configuration ===")
@@ -336,11 +335,12 @@ class AnisotropicFilterTrainer:
             verbose=1
         ))
         
-        # Model checkpoint
+        # Model checkpoint with better error handling
         callbacks.append(keras.callbacks.ModelCheckpoint(
             self.model_dir / "best_model.h5",
             monitor='val_loss',
             save_best_only=True,
+            save_weights_only=False,
             verbose=1
         ))
         
@@ -414,8 +414,15 @@ class AnisotropicFilterTrainer:
         print(f"Training completed in {training_time:.2f} seconds")
         print(f"Average time per epoch: {training_time/len(self.history.history['loss']):.2f} seconds")
         
-        # Save final model
+        # Save final model in both formats
         self.unet.model.save(self.model_dir / "final_model.h5")
+        try:
+            # Also save in SavedModel format as backup
+            self.unet.model.save(self.model_dir / "final_model_savedmodel")
+            print("Model saved in both H5 and SavedModel formats")
+        except Exception as e:
+            print(f"Warning: Could not save in SavedModel format: {e}")
+            print("Model saved in H5 format only")
         
         # Save training history
         with open(self.model_dir / "training_history.pkl", 'wb') as f:
@@ -427,8 +434,56 @@ class AnisotropicFilterTrainer:
         """Evaluate model on test set"""
         print("Evaluating model on test set...")
         
-        # Load best model
-        self.unet.model = keras.models.load_model(self.model_dir / "best_model.h5")
+        # Try to load best model, with fallbacks for different issues
+        model_loaded = False
+        
+        # First, try to load the best model
+        if (self.model_dir / "best_model.h5").exists():
+            try:
+                self.unet.model = keras.models.load_model(self.model_dir / "best_model.h5")
+                model_loaded = True
+                print("Loaded best_model.h5 successfully")
+            except (TypeError, ValueError) as e:
+                print(f"Warning: Could not load best_model.h5 with compile info: {e}")
+                try:
+                    print("Loading model without compile info and recompiling...")
+                    self.unet.model = keras.models.load_model(self.model_dir / "best_model.h5", compile=False)
+                    # Recompile the model
+                    self.unet.model.compile(
+                        optimizer=keras.optimizers.Adam(learning_rate=1e-4),
+                        loss='mse',
+                        metrics=['mae', 'mse']
+                    )
+                    model_loaded = True
+                    print("Loaded and recompiled best_model.h5 successfully")
+                except Exception as e2:
+                    print(f"Failed to load best_model.h5: {e2}")
+        
+        # If best model failed, try final model
+        if not model_loaded and (self.model_dir / "final_model.h5").exists():
+            try:
+                self.unet.model = keras.models.load_model(self.model_dir / "final_model.h5", compile=False)
+                self.unet.model.compile(
+                    optimizer=keras.optimizers.Adam(learning_rate=1e-4),
+                    loss='mse',
+                    metrics=['mae', 'mse']
+                )
+                model_loaded = True
+                print("Loaded final_model.h5 successfully")
+            except Exception as e:
+                print(f"Failed to load final_model.h5: {e}")
+        
+        # If both H5 models failed, try SavedModel format
+        if not model_loaded and (self.model_dir / "final_model_savedmodel").exists():
+            try:
+                self.unet.model = keras.models.load_model(self.model_dir / "final_model_savedmodel")
+                model_loaded = True
+                print("Loaded final_model_savedmodel successfully")
+            except Exception as e:
+                print(f"Failed to load SavedModel: {e}")
+        
+        if not model_loaded:
+            raise FileNotFoundError("Could not load any trained model. Please train the model first.")
         
         # Evaluate
         test_loss, test_mae, test_mse = self.unet.model.evaluate(
@@ -528,7 +583,16 @@ class ImageInference:
             model_path: Path to trained model
             window_size: Size of windows for inference
         """
-        self.model = keras.models.load_model(model_path)
+        # Load model with error handling for serialization issues
+        try:
+            self.model = keras.models.load_model(model_path)
+            print("Model loaded successfully with compilation info")
+        except (TypeError, ValueError) as e:
+            print(f"Warning: Could not load model with compile info: {e}")
+            print("Loading model without compile info...")
+            self.model = keras.models.load_model(model_path, compile=False)
+            print("Model loaded successfully without compilation info")
+        
         self.window_size = window_size
     
     def extract_windows(self, image, stride=None):
