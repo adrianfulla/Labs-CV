@@ -3,6 +3,17 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Specific gitignore for this Python projects
+*
+!Anisotropic.py
+!lab4*.py
+
+
+
+
+
+
+
 # C extensions
 *.so
 
