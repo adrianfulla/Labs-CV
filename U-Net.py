@@ -489,7 +489,7 @@ class LandfillSegmentationTrainer:
                 verbose=1
             ),
             keras.callbacks.ModelCheckpoint(
-                self.model_dir / "best_segmentation_model.h5",
+                self.model_dir / "best_segmentation_model.keras",
                 monitor='val_iou_metric',
                 mode='max',
                 save_best_only=True,
@@ -536,7 +536,7 @@ class LandfillSegmentationTrainer:
         print(f"Training completed in {training_time:.2f} seconds")
 
         # Save final model
-        self.unet.model.save(self.model_dir / "final_segmentation_model.h5")
+        self.unet.model.save(self.model_dir / "final_segmentation_model.keras")
 
         # Save training history
         with open(self.model_dir / "training_history.pkl", 'wb') as f:
@@ -557,10 +557,10 @@ class LandfillSegmentationTrainer:
             except Exception as e:
                 print(f"Error loading model: {e}")
                 return None
-        elif (self.model_dir / "best_segmentation_model.h5").exists():
+        elif (self.model_dir / "best_segmentation_model.keras").exists():
             try:
                 self.unet.model = keras.models.load_model(
-                    self.model_dir / "best_segmentation_model.h5",
+                    self.model_dir / "best_segmentation_model.keras",
                     compile=False
                 )
                 self.unet.compile_model(use_mixed_precision=self.gpu_available)
@@ -1458,16 +1458,24 @@ def main():
             return
 
         if not args.model_path:
-            # Try to find best model
+            # Try to find best model (prefer .keras, fallback to .h5)
             model_dir = Path(args.model_dir)
-            best_model_path = model_dir / "best_segmentation_model.h5"
-            final_model_path = model_dir / "final_segmentation_model.h5"
+            best_model_keras = model_dir / "best_segmentation_model.keras"
+            best_model_h5 = model_dir / "best_segmentation_model.h5"
+            final_model_keras = model_dir / "final_segmentation_model.keras"
+            final_model_h5 = model_dir / "final_segmentation_model.h5"
 
-            if best_model_path.exists():
-                args.model_path = str(best_model_path)
+            if best_model_keras.exists():
+                args.model_path = str(best_model_keras)
                 print(f"Using best model: {args.model_path}")
-            elif final_model_path.exists():
-                args.model_path = str(final_model_path)
+            elif best_model_h5.exists():
+                args.model_path = str(best_model_h5)
+                print(f"Using best model: {args.model_path}")
+            elif final_model_keras.exists():
+                args.model_path = str(final_model_keras)
+                print(f"Using final model: {args.model_path}")
+            elif final_model_h5.exists():
+                args.model_path = str(final_model_h5)
                 print(f"Using final model: {args.model_path}")
             else:
                 print("Error: No trained model found. Please specify --model_path")

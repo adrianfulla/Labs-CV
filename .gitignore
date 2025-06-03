@@ -160,3 +160,4 @@ cython_debug/
 .idea/
 DataSet/
 Testing/
+inference_results/
